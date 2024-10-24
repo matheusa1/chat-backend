@@ -6,7 +6,7 @@ export class Room {
   description: string
   clients: {
     name: string
-    socket: Socket
+    socketId: string
   }[]
   messages: TMessage[]
 }

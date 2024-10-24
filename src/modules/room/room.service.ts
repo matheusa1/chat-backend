@@ -1,12 +1,63 @@
 import { Injectable } from '@nestjs/common'
 import { CreateRoomDto } from './dto/create-room.dto'
-import { UpdateRoomDto } from './dto/update-room.dto'
-import { Room } from './entities/room.entity'
+import { Room, TMessage } from './entities/room.entity'
 import { v4 as uuidv4 } from 'uuid'
-
+import { Socket } from 'socket.io'
+import { faker } from '@faker-js/faker'
 @Injectable()
 export class RoomService {
   private rooms: Room[] = []
+
+  leaveRoomByClientId(id: string) {
+    const newRooms = this.rooms.map((room) => ({
+      ...room,
+      clients: room.clients.filter((client) => client.socketId !== id),
+    }))
+
+    const userRooms = this.rooms.filter((room) =>
+      room.clients.find((client) => client.socketId === id),
+    )
+
+    this.rooms = newRooms
+
+    return userRooms
+  }
+
+  leaveRoom(id: string, userId: Socket) {
+    const room = this.rooms.find((room) => room.id === id)
+
+    if (!room) {
+      throw new Error('Sala não encontrada')
+    }
+
+    const newClients = room.clients.filter(
+      (client) => client.socketId !== userId.id,
+    )
+
+    room.clients = newClients
+
+    this.rooms = this.rooms.map((r) => (r.id === id ? room : r))
+
+    return { error: false, data: room }
+  }
+
+  enterRoom(id: string, userId: Socket) {
+    const room = this.rooms.find((room) => room.id === id)
+
+    if (!room) {
+      throw new Error('Sala não encontrada')
+    }
+
+    const randomName = faker.person.fullName()
+
+    const client = { socketId: userId.id, name: randomName }
+
+    room.clients.push(client)
+
+    this.rooms = this.rooms.map((r) => (r.id === id ? room : r))
+
+    return { error: false, data: room }
+  }
 
   create(createRoomDto: CreateRoomDto) {
     const { name, description } = createRoomDto
@@ -28,18 +79,34 @@ export class RoomService {
   }
 
   findAll() {
-    return `This action returns all room`
+    return this.rooms
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} room`
+  findOne(id: string) {
+    return this.rooms.find((room) => room.id === id)
   }
 
-  update(id: number, updateRoomDto: UpdateRoomDto) {
-    return `This action updates a #${id} room`
-  }
+  sendMessage(clientId: string, data: { content: string; roomId: string }) {
+    const room = this.rooms.find((room) => room.id === data.roomId)
 
-  remove(id: number) {
-    return `This action removes a #${id} room`
+    if (!room) {
+      throw new Error('Sala não encontrada')
+    }
+
+    const messageData: TMessage = {
+      content: data.content,
+      date: new Date(),
+      sender: {
+        id: room.clients.find((client) => client.socketId === clientId)
+          .socketId,
+        name: room.clients.find((client) => client.socketId === clientId).name,
+      },
+    }
+
+    room.messages.push(messageData)
+
+    this.rooms = this.rooms.map((r) => (r.id === room.id ? room : r))
+
+    return { response: { error: false, data: room }, message: messageData }
   }
 }
