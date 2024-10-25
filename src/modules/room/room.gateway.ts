@@ -33,13 +33,18 @@ export class RoomGateway {
     this.logger.log(`Cliend id:${client.id} disconnected`)
 
     const rooms = this.roomService.leaveRoomByClientId(client.id)
-
     rooms.forEach((room) => {
-      room.clients.forEach((clientRoom) => {
-        this.io.to(clientRoom.socketId).emit('userLeave', {
-          socketId: client.id,
+      console.log(room.clients)
+      if (room.clients.length === 1) {
+        this.roomService.deleteRoom(room.id)
+        this.logger.verbose(`Room ${room.id} deleted`)
+      } else {
+        room.clients.forEach((clientRoom) => {
+          this.io.to(clientRoom.socketId).emit('userLeave', {
+            socketId: client.id,
+          })
         })
-      })
+      }
     })
   }
 
@@ -48,12 +53,18 @@ export class RoomGateway {
     try {
       const room = this.roomService.leaveRoom(id, client)
       this.logger.verbose(`Client(${client.id}) leave room ${room.data.id}`)
+      console.log(room.data.clients)
 
-      room.data.clients.forEach((clientRoom) => {
-        this.io.to(clientRoom.socketId).emit('userLeave', {
-          socketId: client.id,
+      if (room.data.clients.length === 0) {
+        this.roomService.deleteRoom(room.data.id)
+        this.logger.verbose(`Room ${room.data.id} deleted`)
+      } else {
+        room.data.clients.forEach((clientRoom) => {
+          this.io.to(clientRoom.socketId).emit('userLeave', {
+            socketId: client.id,
+          })
         })
-      })
+      }
     } catch (error: unknown) {
       return client.emit('error', error)
     }
@@ -93,6 +104,29 @@ export class RoomGateway {
 
       room.data.clients.forEach((clientRoom) => {
         this.io.to(clientRoom.socketId).emit('newMessage', message)
+      })
+    } catch (error: unknown) {
+      return client.emit('error', error)
+    }
+  }
+
+  @SubscribeMessage('changeName')
+  changeName(client: Socket, data: { name: string; roomId: string }) {
+    try {
+      this.logger.verbose(
+        `Client(${client.id}) change name in room ${data.roomId}`,
+      )
+      const room = this.roomService.changeName(client.id, data)
+
+      const userName = room.data.clients.find(
+        (clientRoom) => clientRoom.socketId === client.id,
+      ).name
+
+      room.data.clients.forEach((clientRoom) => {
+        this.io.to(clientRoom.socketId).emit('changeName', {
+          socketId: client.id,
+          name: userName,
+        })
       })
     } catch (error: unknown) {
       return client.emit('error', error)

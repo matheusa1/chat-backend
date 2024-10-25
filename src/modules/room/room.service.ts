@@ -109,4 +109,26 @@ export class RoomService {
 
     return { response: { error: false, data: room }, message: messageData }
   }
+
+  changeName(clientId: string, data: { name: string; roomId: string }) {
+    const room = this.rooms.find((room) => room.id === data.roomId)
+
+    if (!room) {
+      throw new Error('Sala não encontrada')
+    }
+
+    const newClients = room.clients.map((client) =>
+      client.socketId === clientId ? { ...client, name: data.name } : client,
+    )
+
+    room.clients = newClients
+
+    this.rooms = this.rooms.map((r) => (r.id === room.id ? room : r))
+
+    return { error: false, data: room }
+  }
+
+  deleteRoom(id: string) {
+    this.rooms = this.rooms.filter((room) => room.id !== id)
+  }
 }
