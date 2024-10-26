@@ -103,7 +103,7 @@ export class RoomService {
       },
     }
 
-    room.messages.push(messageData)
+    room.messages.unshift(messageData)
 
     this.rooms = this.rooms.map((r) => (r.id === room.id ? room : r))
 
