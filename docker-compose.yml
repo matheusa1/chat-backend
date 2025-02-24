@@ -1,0 +1,12 @@
+services:
+  chat-back:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '3333:3333'
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    container_name: chat-back
+    attach: false
